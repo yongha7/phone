@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MINIPHON OS</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        phoneBg: '#0f172a'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Pretendard', sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .glass { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .phone-shadow { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 12px #1e293b; }
+        .app-transition { transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-0 md:p-6 overflow-hidden">
+
+    <!-- Phone Frame -->
+    <div id="phoneFrame" class="w-full h-screen md:h-[840px] md:w-[400px] bg-slate-900 md:rounded-[48px] phone-shadow relative flex flex-col overflow-hidden border-0 md:border-4 border-slate-700/50">
+        
+        <!-- Status Bar -->
+        <div class="h-10 px-6 pt-3 flex justify-between items-center text-xs font-semibold z-50 text-white select-none">
+            <span id="statusBarTime">12:00</span>
+            <div class="w-20 h-4 bg-black rounded-full absolute left-1/2 -translate-x-1/2 top-2 hidden md:block"></div>
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-battery-full"></i>
+            </div>
+        </div>
+
+        <!-- Main Screen Area -->
+        <div id="screenArea" class="flex-1 relative overflow-hidden bg-cover bg-center transition-all duration-300" style="background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop');">
+            
+            <!-- Home Screen View -->
+            <div id="homeScreen" class="absolute inset-0 p-6 flex flex-col justify-between z-10 overflow-y-auto hide-scrollbar">
+                <!-- Clock Widget (KST) -->
+                <div class="text-center mt-4 glass rounded-3xl p-5 text-white shadow-xl">
+                    <div id="widgetTime" class="text-4xl font-bold tracking-tight">12:00</div>
+                    <div id="widgetDate" class="text-xs font-medium opacity-80 mt-1">2026년 9월 23일 수요일</div>
+                    <div class="mt-3 pt-3 border-t border-white/10 flex justify-between items-center px-2 text-xs">
+                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-clock text-amber-400"></i> 한국 표준시 (KST)</span>
+                        <span class="font-semibold text-slate-300">MINIPHON</span>
+                    </div>
+                </div>
+
+                <!-- App Grid -->
+                <div id="appGrid" class="grid grid-cols-4 gap-4 my-auto py-2">
+                    <!-- Dynamic rendering -->
+                </div>
+
+                <!-- Dock -->
+                <div class="glass rounded-3xl p-3 flex justify-around items-center mb-1 shadow-2xl">
+                    <button onclick="checkAppLockAndOpen('notes')" class="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white text-xl shadow-md hover:scale-105 active:scale-95 transition relative">
+                        <i class="fa-solid fa-note-sticky"></i>
+                        <span id="dock-lock-notes" class="hidden absolute -top-1 -right-1 bg-rose-600 text-[10px] w-4 h-4 rounded-full items-center justify-center border border-slate-900"><i class="fa-solid fa-lock"></i></span>
+                    </button>
+                    <button onclick="checkAppLockAndOpen('browser')" class="w-12 h-12 bg-blue-500 rounded-2xl flex items-center justify-center text-white text-xl shadow-md hover:scale-105 active:scale-95 transition relative">
+                        <i class="fa-solid fa-user-secret"></i>
+                        <span id="dock-lock-browser" class="hidden absolute -top-1 -right-1 bg-rose-600 text-[10px] w-4 h-4 rounded-full items-center justify-center border border-slate-900"><i class="fa-solid fa-lock"></i></span>
+                    </button>
+                    <button onclick="checkAppLockAndOpen('unicode')" class="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center text-white text-xl shadow-md hover:scale-105 active:scale-95 transition relative">
+                        <i class="fa-solid fa-code"></i>
+                        <span id="dock-lock-unicode" class="hidden absolute -top-1 -right-1 bg-rose-600 text-[10px] w-4 h-4 rounded-full items-center justify-center border border-slate-900"><i class="fa-solid fa-lock"></i></span>
+                    </button>
+                    <button onclick="openSettingsAdminAuth()" class="w-12 h-12 bg-slate-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-md hover:scale-105 active:scale-95 transition relative">
+                        <i class="fa-solid fa-gear"></i>
+                        <span class="absolute -top-1 -right-1 bg-indigo-600 text-[10px] w-4 h-4 rounded-full flex items-center justify-center border border-slate-900"><i class="fa-solid fa-shield-halved"></i></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active App View Layer -->
+            <div id="appLayer" class="absolute inset-0 bg-slate-900 z-20 translate-y-full opacity-0 app-transition flex flex-col">
+                <!-- App Top Navigation Bar -->
+                <div class="h-12 px-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 backdrop-blur-md">
+                    <span id="appTitle" class="font-bold text-xs tracking-wide text-slate-100 flex items-center gap-2">
+                        <i id="appIcon" class="fa-solid fa-app"></i> <span id="appName">App</span>
+                    </span>
+                    <button onclick="closeApp()" class="text-slate-400 hover:text-white p-1.5"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <!-- App Content View -->
+                <div id="appBody" class="flex-1 overflow-y-auto relative p-4 text-slate-100 hide-scrollbar">
+                    <!-- Dynamic App Content -->
+                </div>
+            </div>
+
+            <!-- Individual App Lock Password Prompt Modal Layer -->
+            <div id="appLockModal" class="absolute inset-0 bg-slate-950/95 z-30 hidden flex-col items-center justify-center p-6 text-center">
+                <div class="w-14 h-14 bg-rose-600/20 text-rose-500 rounded-2xl flex items-center justify-center text-2xl mb-3 border border-rose-500/30">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h3 id="lockModalAppName" class="font-bold text-sm mb-1 text-slate-100">앱 잠금 해제</h3>
+                <p class="text-xs text-slate-400 mb-4">접근하려면 비밀번호를 입력하세요.</p>
+                <input type="password" id="appLockInput" placeholder="비밀번호 입력" class="w-full max-w-xs bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-center text-xs mb-3 focus:outline-none focus:border-rose-500">
+                <div class="flex gap-2 w-full max-w-xs">
+                    <button onclick="cancelAppLock()" class="flex-1 bg-slate-800 text-slate-300 py-2.5 rounded-xl text-xs">취소</button>
+                    <button onclick="verifyAppLock()" class="flex-1 bg-rose-600 font-semibold py-2.5 rounded-xl text-xs">확인</button>
+                </div>
+            </div>
+
+            <!-- Admin Settings Lock Auth Modal (Strictly Protecting Settings) -->
+            <div id="settingsAdminModal" class="absolute inset-0 bg-slate-950/95 z-40 hidden flex-col items-center justify-center p-6 text-center">
+                <div class="w-14 h-14 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center text-2xl mb-3 border border-indigo-500/30">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h3 class="font-bold text-sm mb-1 text-slate-100">관리자 전용 설정 접근</h3>
+                <p class="text-xs text-slate-400 mb-4">설정 앱은 관리자 인증 후 이용할 수 있습니다.</p>
+                <input type="password" id="settingsAdminPinInput" placeholder="관리자 PIN 입력 (초기: 0000)" class="w-full max-w-xs bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-center text-xs mb-3 focus:outline-none focus:border-indigo-500">
+                <div class="flex gap-2 w-full max-w-xs">
+                    <button onclick="closeSettingsAdminModal()" class="flex-1 bg-slate-800 text-slate-300 py-2.5 rounded-xl text-xs">취소</button>
+                    <button onclick="verifySettingsAdminAuth()" class="flex-1 bg-indigo-600 font-semibold py-2.5 rounded-xl text-xs">인증 및 진입</button>
+                </div>
+            </div>
+
+            <!-- FIRST ENTRY ALWAYS PHONE LOCK SCREEN -->
+            <div id="phoneLockScreen" class="absolute inset-0 bg-slate-950/95 backdrop-blur-xl z-50 flex flex-col items-center justify-between p-8 text-center">
+                <div class="mt-8">
+                    <div id="lockScreenTime" class="text-5xl font-extralight tracking-tight text-white mb-1">12:00</div>
+                    <div id="lockScreenDate" class="text-xs font-medium text-slate-400">2026년 9월 23일 수요일</div>
+                </div>
+
+                <div class="w-full max-w-xs space-y-4">
+                    <div class="w-12 h-12 bg-slate-800/80 text-amber-400 rounded-2xl flex items-center justify-center text-xl mx-auto border border-slate-700/50">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <p class="text-xs text-slate-300 font-medium">MINIPHON 잠금 상태</p>
+                    <input type="password" id="phoneLockPinInput" placeholder="잠금 해제 PIN 입력 (초기: 0000)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-center text-sm focus:outline-none focus:border-amber-500 text-white">
+                    <button onclick="unlockPhone()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 text-xs rounded-xl shadow-lg transition">잠금 해제</button>
+                </div>
+
+                <div class="text-[10px] text-slate-500">MINIPHON OS • KST Security Active</div>
+            </div>
+
+        </div>
+
+        <!-- Navigation Bar -->
+        <div class="h-11 bg-slate-950 border-t border-slate-800 flex justify-around items-center px-12 z-50 text-slate-400 text-sm">
+            <button onclick="handleNavBack()" class="hover:text-white p-2"><i class="fa-solid fa-chevron-left"></i></button>
+            <button onclick="closeApp()" class="hover:text-white p-2"><i class="fa-regular fa-circle text-base"></i></button>
+            <button onclick="showRecentApps()" class="hover:text-white p-2"><i class="fa-solid fa-bars"></i></button>
+        </div>
+    </div>
+
+    <!-- MAIN OS SCRIPT -->
+    <script>
+        const APPS = [
+            { id: 'notes', name: '메모', icon: 'fa-note-sticky', color: 'bg-amber-500' },
+            { id: 'links', name: '링크', icon: 'fa-link', color: 'bg-emerald-500' },
+            { id: 'browser', name: '시크릿 브라우저', icon: 'fa-user-secret', color: 'bg-blue-500' },
+            { id: 'unicode', name: '유니코드', icon: 'fa-code', color: 'bg-indigo-500' },
+            { id: 'calculator', name: '계산기', icon: 'fa-calculator', color: 'bg-orange-500' },
+            { id: 'calendar', name: '캘린더', icon: 'fa-calendar-days', color: 'bg-red-500' },
+            { id: 'timer', name: '타이머', icon: 'fa-stopwatch', color: 'bg-cyan-500' },
+            { id: 'alarm', name: '알람', icon: 'fa-clock', color: 'bg-teal-500' },
+            { id: 'gallery', name: '갤러리', icon: 'fa-image', color: 'bg-purple-500' },
+            { id: 'secret_notes', name: '비밀메모', icon: 'fa-user-lock', color: 'bg-rose-600' },
+            { id: 'game', name: '미니게임', icon: 'fa-gamepad', color: 'bg-pink-500' },
+            { id: 'settings', name: '설정(관리자)', icon: 'fa-gear', color: 'bg-slate-600' }
+        ];
+
+        let currentApp = null;
+        let pendingAppId = null;
+        let supabaseClient = null;
+        let appLockSettings = {};
+        const STORAGE_PREFIX = 'MINIPHON_';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            initKoreanClock();
+            await loadAppLockSettings();
+            renderAppGrid();
+            initSupabase();
+            loadCustomBg();
+            // ALWAYS SHOW LOCK SCREEN ON INITIAL ENTRY / REFRESH
+            showPhoneLockScreen();
+        });
+
+        // KST Clock Engine
+        function getKSTDate() {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            return new Date(utc + (9 * 3600000));
+        }
+
+        function initKoreanClock() {
+            const updateTime = () => {
+                const kst = getKSTDate();
+                const hours = String(kst.getHours()).padStart(2, '0');
+                const minutes = String(kst.getMinutes()).padStart(2, '0');
+                const timeStr = `${hours}:${minutes}`;
+
+                const year = kst.getFullYear();
+                const month = kst.getMonth() + 1;
+                const date = kst.getDate();
+                const days = ['일', '월', '화', '수', '목', '금', '토'];
+                const dayName = days[kst.getDay()];
+                const dateStr = `${year}년 ${month}월 ${date}일 ${dayName}요일`;
+
+                document.getElementById('statusBarTime').innerText = timeStr;
+                document.getElementById('widgetTime').innerText = timeStr;
+                document.getElementById('widgetDate').innerText = dateStr;
+                document.getElementById('lockScreenTime').innerText = timeStr;
+                document.getElementById('lockScreenDate').innerText = dateStr;
+            };
+            updateTime();
+            setInterval(updateTime, 1000);
+        }
+
+        function showPhoneLockScreen() {
+            document.getElementById('phoneLockScreen').classList.remove('hidden');
+            document.getElementById('phoneLockScreen').classList.add('flex');
+            document.getElementById('phoneLockPinInput').value = '';
+        }
+
+        async function unlockPhone() {
+            const inputPin = document.getElementById('phoneLockPinInput').value;
+            const savedPin = await loadData('phone_lock_pin', '0000');
+            if (inputPin === savedPin) {
+                document.getElementById('phoneLockScreen').classList.add('hidden');
+                document.getElementById('phoneLockScreen').classList.remove('flex');
+            } else {
+                alert('전화기 잠금 PIN 번호가 일치하지 않습니다.');
+            }
+        }
+
+        function initSupabase() {
+            const url = localStorage.getItem('MINIPHON_SUPABASE_URL');
+            const key = localStorage.getItem('MINIPHON_SUPABASE_KEY');
+            if(url && key && window.supabase) {
+                supabaseClient = window.supabase.createClient(url, key);
+            }
+        }
+
+        function loadCustomBg() {
+            const bg = localStorage.getItem('MINIPHON_BG');
+            if(bg) document.getElementById('screenArea').style.backgroundImage = `url('${bg}')`;
+        }
+
+        async function loadAppLockSettings() {
+            appLockSettings = await loadData('app_lock_config', {});
+        }
+
+        function renderAppGrid() {
+            const grid = document.getElementById('appGrid');
+            grid.innerHTML = APPS.map(app => {
+                const isLocked = app.id === 'settings' ? true : !!appLockSettings[app.id]?.enabled;
+                const actionHandler = app.id === 'settings' ? "openSettingsAdminAuth()" : `checkAppLockAndOpen('${app.id}')`;
+                return `
+                    <div onclick="${actionHandler}" class="flex flex-col items-center gap-1.5 cursor-pointer group relative">
+                        <div class="w-13 h-13 ${app.color} rounded-2xl flex items-center justify-center text-white text-xl shadow-lg group-active:scale-95 transition relative">
+                            <i class="fa-solid ${app.icon}"></i>
+                            ${isLocked ? `<span class="absolute -top-1 -right-1 bg-rose-600 text-[10px] w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-slate-900 shadow"><i class="fa-solid fa-lock"></i></span>` : ''}
+                        </div>
+                        <span class="text-[11px] font-medium text-white drop-shadow">${app.name}</span>
+                    </div>
+                `;
+            }).join('');
+
+            ['notes', 'browser', 'unicode'].forEach(id => {
+                const badge = document.getElementById(`dock-lock-${id}`);
+                if(badge) {
+                    if(appLockSettings[id]?.enabled) {
+                        badge.classList.remove('hidden'); badge.classList.add('flex');
+                    } else {
+                        badge.classList.add('hidden'); badge.classList.remove('flex');
+                    }
+                }
+            });
+        }
+
+        function checkAppLockAndOpen(appId) {
+            if (appId === 'settings') {
+                openSettingsAdminAuth();
+                return;
+            }
+            const lockConfig = appLockSettings[appId];
+            if (lockConfig && lockConfig.enabled) {
+                pendingAppId = appId;
+                const app = APPS.find(a => a.id === appId);
+                document.getElementById('lockModalAppName').innerText = `[${app ? app.name : '앱'}] 접근 잠금`;
+                document.getElementById('appLockInput').value = '';
+                document.getElementById('appLockModal').classList.remove('hidden');
+                document.getElementById('appLockModal').classList.add('flex');
+            } else {
+                openApp(appId);
+            }
+        }
+
+        async function verifyAppLock() {
+            const inputPin = document.getElementById('appLockInput').value;
+            const lockConfig = appLockSettings[pendingAppId];
+            const targetPin = lockConfig?.pin || '0000';
+
+            if (inputPin === targetPin) {
+                const targetApp = pendingAppId;
+                cancelAppLock();
+                openApp(targetApp);
+            } else {
+                alert('앱 비밀번호가 일치하지 않습니다.');
+            }
+        }
+
+        function cancelAppLock() {
+            document.getElementById('appLockModal').classList.add('hidden');
+            document.getElementById('appLockModal').classList.remove('flex');
+            pendingAppId = null;
+        }
+
+        // STRICT SETTINGS ADMIN ACCESS
+        function openSettingsAdminAuth() {
+            document.getElementById('settingsAdminPinInput').value = '';
+            document.getElementById('settingsAdminModal').classList.remove('hidden');
+            document.getElementById('settingsAdminModal').classList.add('flex');
+        }
+
+        function closeSettingsAdminModal() {
+            document.getElementById('settingsAdminModal').classList.add('hidden');
+            document.getElementById('settingsAdminModal').classList.remove('flex');
+        }
+
+        async function verifySettingsAdminAuth() {
+            const pin = document.getElementById('settingsAdminPinInput').value;
+            const storedAdminPin = await loadData('admin_pin', '0000');
+            if (pin === storedAdminPin) {
+                closeSettingsAdminModal();
+                openApp('settings');
+            } else {
+                alert('관리자 PIN 번호가 올바르지 않습니다.');
+            }
+        }
+
+        function openApp(appId) {
+            const app = APPS.find(a => a.id === appId);
+            if (!app) return;
+
+            currentApp = appId;
+            document.getElementById('appName').innerText = app.name;
+            document.getElementById('appIcon').className = `fa-solid ${app.icon}`;
+
+            const appBody = document.getElementById('appBody');
+            appBody.innerHTML = '';
+            renderAppContent(appId, appBody);
+
+            const layer = document.getElementById('appLayer');
+            layer.classList.remove('translate-y-full', 'opacity-0');
+        }
+
+        function closeApp() {
+            const layer = document.getElementById('appLayer');
+            layer.classList.add('translate-y-full', 'opacity-0');
+            currentApp = null;
+        }
+
+        function handleNavBack() {
+            if (currentApp) closeApp();
+        }
+
+        function showRecentApps() {
+            alert('현재 백그라운드에서 실행 중인 앱이 없습니다.');
+        }
+
+        // Data Storage Engine
+        async function saveData(key, value) {
+            localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+            if(supabaseClient) {
+                try {
+                    await supabaseClient.from('miniphon_store').upsert({ id: key, data: value });
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        async function loadData(key, defaultValue = []) {
+            if(supabaseClient) {
+                try {
+                    const { data } = await supabaseClient.from('miniphon_store').select('data').eq('id', key).single();
+                    if(data) return data.data;
+                } catch(e) { console.error(e); }
+            }
+            const local = localStorage.getItem(STORAGE_PREFIX + key);
+            return local ? JSON.parse(local) : defaultValue;
+        }
+
+        // APP ROUTING ENGINE
+        function renderAppContent(appId, container) {
+            switch (appId) {
+                case 'notes': renderNotesApp(container); break;
+                case 'links': renderLinksApp(container); break;
+                case 'browser': renderBrowserApp(container); break;
+                case 'unicode': renderUnicodeApp(container); break;
+                case 'calculator': renderCalculatorApp(container); break;
+                case 'secret_notes': renderSecretNotesApp(container); break;
+                case 'calendar': renderCalendarApp(container); break;
+                case 'timer': renderTimerApp(container); break;
+                case 'alarm': renderAlarmApp(container); break;
+                case 'gallery': renderGalleryApp(container); break;
+                case 'game': renderGameApp(container); break;
+                case 'settings': renderSettingsApp(container); break;
+            }
+        }
+
+        // 1. NOTES APP
+        async function renderNotesApp(container) {
+            let notes = await loadData('notes', []);
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <button onclick="createNote()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow"><i class="fa-solid fa-plus"></i> 새 메모 작성</button>
+                    <div id="notesList" class="space-y-2"></div>
+                </div>
+            `;
+            const renderList = () => {
+                document.getElementById('notesList').innerHTML = notes.map((n, i) => `
+                    <div class="glass-card p-3 rounded-xl relative">
+                        <h4 class="font-bold text-xs text-amber-300 mb-1">${n.title || '제목 없음'}</h4>
+                        <p class="text-xs text-slate-200 whitespace-pre-wrap">${n.content}</p>
+                        <div class="text-[10px] text-slate-400 mt-2">${n.date}</div>
+                        <button onclick="deleteNote(${i})" class="absolute top-2 right-2 text-slate-400 hover:text-red-400 text-xs p-1"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `).join('');
+            };
+            window.createNote = async () => {
+                const title = prompt('메모 제목:');
+                const content = prompt('메모 내용:');
+                if (content) {
+                    const kst = getKSTDate();
+                    const dateStr = `${kst.getFullYear()}.${kst.getMonth()+1}.${kst.getDate()} ${String(kst.getHours()).padStart(2,'0')}:${String(kst.getMinutes()).padStart(2,'0')} (KST)`;
+                    notes.unshift({ title, content, date: dateStr });
+                    await saveData('notes', notes);
+                    renderList();
+                }
+            };
+            window.deleteNote = async (i) => {
+                notes.splice(i, 1);
+                await saveData('notes', notes);
+                renderList();
+            };
+            renderList();
+        }
+
+        // 2. LINKS APP
+        async function renderLinksApp(container) {
+            let links = await loadData('links', []);
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex gap-2">
+                        <input id="linkUrlInput" type="url" placeholder="https://example.com" class="flex-1 bg-slate-800 border border-slate-700 text-xs rounded-xl px-3 py-2">
+                        <button onclick="addLink()" class="bg-emerald-500 text-xs px-4 py-2 rounded-xl font-semibold">추가</button>
+                    </div>
+                    <div id="linksList" class="space-y-2"></div>
+                </div>
+            `;
+            const renderList = () => {
+                document.getElementById('linksList').innerHTML = links.map((l, i) => `
+                    <div class="glass-card p-3 rounded-xl flex items-center justify-between">
+                        <div class="overflow-hidden pr-2">
+                            <div class="text-xs font-bold text-emerald-400 truncate">${l.url}</div>
+                            <div class="text-[10px] text-slate-400 truncate">${new URL(l.url).hostname}</div>
+                        </div>
+                        <div class="flex gap-2 text-xs">
+                            <a href="${l.url}" target="_blank" class="text-slate-300 hover:text-white p-1"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                            <button onclick="deleteLink(${i})" class="text-red-400 p-1"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            };
+            window.addLink = async () => {
+                const input = document.getElementById('linkUrlInput');
+                let url = input.value.trim();
+                if(url) {
+                    if(!url.startsWith('http')) url = 'https://' + url;
+                    links.unshift({ url });
+                    await saveData('links', links);
+                    input.value = '';
+                    renderList();
+                }
+            };
+            window.deleteLink = async (i) => {
+                links.splice(i, 1);
+                await saveData('links', links);
+                renderList();
+            };
+            renderList();
+        }
+
+        // 3. INCOGNITO BROWSER (DEFAULT INCOGNITO MODE)
+        function renderBrowserApp(container) {
+            container.innerHTML = `
+                <div class="flex flex-col h-full space-y-2">
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                        <span class="flex items-center gap-1.5 text-blue-400 font-bold">
+                            <i class="fa-solid fa-user-secret"></i> 시크릿 모드 작동 중
+                        </span>
+                        <span class="text-[10px] text-slate-500">세션 데이터 자동 파기</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input id="browserUrl" type="text" value="https://www.wikipedia.org" class="flex-1 bg-slate-800 text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none">
+                        <button onclick="navigateBrowser()" class="bg-blue-500 text-xs px-3 rounded-xl font-semibold">이동</button>
+                    </div>
+                    <iframe id="browserFrame" src="https://www.wikipedia.org" class="w-full flex-1 rounded-xl bg-white border-0"></iframe>
+                </div>
+            `;
+            window.navigateBrowser = () => {
+                let url = document.getElementById('browserUrl').value.trim();
+                if(!url.startsWith('http')) url = 'https://' + url;
+                document.getElementById('browserFrame').src = url;
+            };
+        }
+
+        // 4. UNICODE TOOL APP
+        function renderUnicodeApp(container) {
+            container.innerHTML = `
+                <div class="space-y-3 text-xs">
+                    <div class="glass-card p-3 rounded-xl space-y-2">
+                        <label class="font-bold text-indigo-300 block">문자 분석 및 유니코드 변환</label>
+                        <input id="unicodeInput" type="text" value="MINIPHON 📱" oninput="processUnicode()" class="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg text-xs text-white">
+                        <div id="unicodeResult" class="space-y-1 mt-2"></div>
+                    </div>
+
+                    <div class="glass-card p-3 rounded-xl space-y-2">
+                        <label class="font-bold text-indigo-300 block">특수문자 & 이모지 원클릭 복사</label>
+                        <div class="grid grid-cols-6 gap-1.5 text-center text-sm">
+                            ${['★','♥','✦','⚡','✿','✓','✕','▲','♠','☯','⌘','🚀','🔒','🔑','🛡','📱'].map(char => `
+                                <button onclick="copyChar('${char}')" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg border border-slate-700/60 transition">${char}</button>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            window.processUnicode = () => {
+                const text = document.getElementById('unicodeInput').value;
+                const resultDiv = document.getElementById('unicodeResult');
+                resultDiv.innerHTML = Array.from(text).map(char => {
+                    const hex = char.codePointAt(0).toString(16).toUpperCase().padStart(4, '0');
+                    return `
+                        <div class="flex justify-between items-center bg-slate-900 p-2 rounded border border-slate-800 font-mono text-[11px]">
+                            <span class="text-indigo-400 font-bold">${char}</span>
+                            <span class="text-slate-300">U+${hex}</span>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            window.copyChar = (char) => {
+                navigator.clipboard.writeText(char);
+                alert(`[${char}] 문자가 클립보드에 복사되었습니다.`);
+            };
+
+            processUnicode();
+        }
+
+        // 5. CALCULATOR APP
+        function renderCalculatorApp(container) {
+            container.innerHTML = `
+                <div class="flex flex-col h-full justify-end max-w-xs mx-auto pb-2">
+                    <div id="calcDisplay" class="text-right text-3xl font-bold mb-4 pr-2 tracking-wider text-slate-100 h-12 flex items-center justify-end overflow-x-auto">0</div>
+                    <div class="grid grid-cols-4 gap-2 text-sm font-semibold">
+                        <button onclick="calcCmd('C')" class="bg-slate-700 py-3 rounded-xl">C</button>
+                        <button onclick="calcCmd('(')" class="bg-slate-700 py-3 rounded-xl">(</button>
+                        <button onclick="calcCmd(')')" class="bg-slate-700 py-3 rounded-xl">)</button>
+                        <button onclick="calcCmd('/')" class="bg-orange-500 py-3 rounded-xl">÷</button>
+                        <button onclick="calcCmd('7')" class="bg-slate-800 py-3 rounded-xl">7</button>
+                        <button onclick="calcCmd('8')" class="bg-slate-800 py-3 rounded-xl">8</button>
+                        <button onclick="calcCmd('9')" class="bg-slate-800 py-3 rounded-xl">9</button>
+                        <button onclick="calcCmd('*')" class="bg-orange-500 py-3 rounded-xl">×</button>
+                        <button onclick="calcCmd('4')" class="bg-slate-800 py-3 rounded-xl">4</button>
+                        <button onclick="calcCmd('5')" class="bg-slate-800 py-3 rounded-xl">5</button>
+                        <button onclick="calcCmd('6')" class="bg-slate-800 py-3 rounded-xl">6</button>
+                        <button onclick="calcCmd('-')" class="bg-orange-500 py-3 rounded-xl">-</button>
+                        <button onclick="calcCmd('1')" class="bg-slate-800 py-3 rounded-xl">1</button>
+                        <button onclick="calcCmd('2')" class="bg-slate-800 py-3 rounded-xl">2</button>
+                        <button onclick="calcCmd('3')" class="bg-slate-800 py-3 rounded-xl">3</button>
+                        <button onclick="calcCmd('+')" class="bg-orange-500 py-3 rounded-xl">+</button>
+                        <button onclick="calcCmd('0')" class="col-span-2 bg-slate-800 py-3 rounded-xl">0</button>
+                        <button onclick="calcCmd('.')" class="bg-slate-800 py-3 rounded-xl">.</button>
+                        <button onclick="calcCmd('=')" class="bg-orange-500 py-3 rounded-xl">=</button>
+                    </div>
+                </div>
+            `;
+            let expr = '';
+            window.calcCmd = (v) => {
+                const disp = document.getElementById('calcDisplay');
+                if(v === 'C') { expr = ''; disp.innerText = '0'; }
+                else if(v === '=') {
+                    try { expr = eval(expr).toString(); disp.innerText = expr; }
+                    catch { disp.innerText = 'Error'; expr = ''; }
+                } else {
+                    expr += v;
+                    disp.innerText = expr;
+                }
+            };
+        }
+
+        // 6. SECRET NOTES APP
+        async function renderSecretNotesApp(container) {
+            let secrets = await loadData('secret_notes_data', []);
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <button onclick="addSecretNote()" class="w-full bg-rose-600 text-xs py-2 rounded-xl font-semibold"><i class="fa-solid fa-plus"></i> 비밀 메모 추가</button>
+                    <div id="secretList" class="space-y-2"></div>
+                </div>
+            `;
+            const renderList = () => {
+                document.getElementById('secretList').innerHTML = secrets.map((s, i) => `
+                    <div class="glass-card border-rose-500/20 p-3 rounded-xl relative">
+                        <p class="text-xs text-slate-200">${s}</p>
+                        <button onclick="deleteSecret(${i})" class="absolute top-2 right-2 text-slate-400 hover:text-red-400 text-xs p-1"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `).join('');
+            };
+            window.addSecretNote = async () => {
+                const text = prompt('비밀 메모 내용:');
+                if(text) {
+                    secrets.unshift(text);
+                    await saveData('secret_notes_data', secrets);
+                    renderList();
+                }
+            };
+            window.deleteSecret = async (i) => {
+                secrets.splice(i, 1);
+                await saveData('secret_notes_data', secrets);
+                renderList();
+            };
+            renderList();
+        }
+
+        // 7. CALENDAR APP
+        async function renderCalendarApp(container) {
+            let events = await loadData('calendar_events', []);
+            const todayKST = getKSTDate();
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <div class="glass-card p-3 rounded-xl text-center">
+                        <div class="font-bold text-xs text-red-400">${todayKST.getFullYear()}년 ${todayKST.getMonth()+1}월</div>
+                    </div>
+                    <button onclick="addEvent()" class="w-full bg-red-500 text-xs py-2 rounded-xl font-semibold"><i class="fa-solid fa-plus"></i> 일정 추가</button>
+                    <div id="eventList" class="space-y-2"></div>
+                </div>
+            `;
+            const renderList = () => {
+                document.getElementById('eventList').innerHTML = events.map((e, i) => `
+                    <div class="glass-card p-3 rounded-xl flex justify-between items-center text-xs">
+                        <div>
+                            <div class="font-bold text-red-300">${e.title}</div>
+                            <div class="text-[10px] text-slate-400">${e.date}</div>
+                        </div>
+                        <button onclick="deleteEvent(${i})" class="text-slate-400 hover:text-red-400 p-1"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `).join('');
+            };
+            window.addEvent = async () => {
+                const title = prompt('일정 이름:');
+                const defaultDate = `${todayKST.getFullYear()}-${String(todayKST.getMonth()+1).padStart(2,'0')}-${String(todayKST.getDate()).padStart(2,'0')}`;
+                const date = prompt('날짜 (예: 2026-09-25):', defaultDate);
+                if(title && date) {
+                    events.push({ title, date });
+                    await saveData('calendar_events', events);
+                    renderList();
+                }
+            };
+            window.deleteEvent = async (i) => {
+                events.splice(i, 1);
+                await saveData('calendar_events', events);
+                renderList();
+            };
+            renderList();
+        }
+
+        // 8. TIMER APP
+        function renderTimerApp(container) {
+            let sec = 0, timerId = null;
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full gap-4">
+                    <div id="timerDisplay" class="text-5xl font-bold font-mono text-cyan-400">00:00</div>
+                    <div class="flex gap-3">
+                        <button onclick="startTimer()" class="bg-cyan-500 px-5 py-2 rounded-xl text-xs font-semibold">시작</button>
+                        <button onclick="stopTimer()" class="bg-slate-700 px-5 py-2 rounded-xl text-xs">정지</button>
+                    </div>
+                </div>
+            `;
+            window.startTimer = () => {
+                if(!timerId) {
+                    timerId = setInterval(() => {
+                        sec++;
+                        const m = String(Math.floor(sec/60)).padStart(2,'0');
+                        const s = String(sec%60).padStart(2,'0');
+                        document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+                    }, 1000);
+                }
+            };
+            window.stopTimer = () => { clearInterval(timerId); timerId = null; };
+        }
+
+        // 9. ALARM APP
+        async function renderAlarmApp(container) {
+            let alarms = await loadData('alarms', ['07:00', '23:00']);
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <button onclick="addAlarm()" class="w-full bg-teal-500 text-xs py-2 rounded-xl font-semibold"><i class="fa-solid fa-plus"></i> 알람 추가</button>
+                    <div id="alarmList" class="space-y-2"></div>
+                </div>
+            `;
+            const renderList = () => {
+                document.getElementById('alarmList').innerHTML = alarms.map((a, i) => `
+                    <div class="glass-card p-3 rounded-xl flex justify-between items-center">
+                        <span class="text-lg font-mono font-bold text-teal-300">${a}</span>
+                        <button onclick="deleteAlarm(${i})" class="text-slate-400 hover:text-red-400 text-xs p-1"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `).join('');
+            };
+            window.addAlarm = async () => {
+                const time = prompt('알람 시간 (예: 08:30):');
+                if(time) {
+                    alarms.push(time);
+                    await saveData('alarms', alarms);
+                    renderList();
+                }
+            };
+            window.deleteAlarm = async (i) => {
+                alarms.splice(i, 1);
+                await saveData('alarms', alarms);
+                renderList();
+            };
+            renderList();
+        }
+
+        // 10. GALLERY APP
+        async function renderGalleryApp(container) {
+            let photos = await loadData('gallery', []);
+            container.innerHTML = `
+                <div class="space-y-3">
+                    <button onclick="addPhoto()" class="w-full bg-purple-500 text-xs py-2 rounded-xl font-semibold"><i class="fa-solid fa-plus"></i> 이미지 URL 등록</button>
+                    <div id="photoGrid" class="grid grid-cols-2 gap-2"></div>
+                </div>
+            `;
+            const renderGrid = () => {
+                document.getElementById('photoGrid').innerHTML = photos.map((p, i) => `
+                    <div class="relative group rounded-xl overflow-hidden aspect-square border border-slate-800">
+                        <img src="${p}" class="w-full h-full object-cover">
+                        <button onclick="deletePhoto(${i})" class="absolute top-1 right-1 bg-black/60 text-red-400 p-1 rounded-md text-xs"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `).join('');
+            };
+            window.addPhoto = async () => {
+                const url = prompt('이미지 URL 입력:');
+                if(url) {
+                    photos.unshift(url);
+                    await saveData('gallery', photos);
+                    renderGrid();
+                }
+            };
+            window.deletePhoto = async (i) => {
+                photos.splice(i, 1);
+                await saveData('gallery', photos);
+                renderGrid();
+            };
+            renderGrid();
+        }
+
+        // 11. MINI GAME APP
+        function renderGameApp(container) {
+            let count = 0;
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full gap-4 text-center">
+                    <h3 class="text-xs font-semibold text-slate-300">클릭 스피드 게임</h3>
+                    <div id="clickCount" class="text-6xl font-bold text-pink-400">0</div>
+                    <button onclick="clickGame()" class="w-24 h-24 bg-pink-500 active:scale-90 rounded-full font-bold text-lg shadow-xl transition">TAP!</button>
+                </div>
+            `;
+            window.clickGame = () => {
+                count++;
+                document.getElementById('clickCount').innerText = count;
+            };
+        }
+
+        // 12. ADMIN SETTINGS DASHBOARD (ALL PASSWORDS VISIBLE & FLEXIBLE PIN LENGTH)
+        async function renderSettingsApp(container) {
+            const currentPhonePin = await loadData('phone_lock_pin', '0000');
+            const currentAdminPin = await loadData('admin_pin', '0000');
+
+            container.innerHTML = `
+                <div class="space-y-4 text-xs">
+                    <!-- Master Password Management Section -->
+                    <div class="glass-card p-3.5 rounded-xl space-y-3 border-indigo-500/30">
+                        <h4 class="font-bold text-indigo-300 border-b border-slate-700/60 pb-1.5 flex items-center gap-1.5">
+                            <i class="fa-solid fa-eye"></i> 비밀번호 통합 관리 (글자수 제한 없음)
+                        </h4>
+                        
+                        <div class="space-y-2">
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">전화기 잠금 PIN</label>
+                                <div class="flex gap-2">
+                                    <input id="masterPhonePin" type="text" value="${currentPhonePin}" class="flex-1 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-mono text-amber-400">
+                                    <button onclick="updatePhonePin()" class="bg-amber-500 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-[11px]">변경</button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-0.5">관리자 PIN</label>
+                                <div class="flex gap-2">
+                                    <input id="masterAdminPin" type="text" value="${currentAdminPin}" class="flex-1 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-mono text-indigo-400">
+                                    <button onclick="updateAdminPin()" class="bg-indigo-600 font-bold px-3 py-1.5 rounded-lg text-[11px]">변경</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Individual App Locks Monitor -->
+                    <div class="glass-card p-3.5 rounded-xl space-y-2">
+                        <h4 class="font-bold text-slate-200 border-b border-slate-700/60 pb-1.5 flex items-center justify-between">
+                            <span><i class="fa-solid fa-shield-cat mr-1 text-rose-400"></i> 앱별 비밀번호 제어</span>
+                        </h4>
+                        <div id="appLockSettingList" class="space-y-2 pt-1"></div>
+                    </div>
+
+                    <!-- System Backup & Wallpaper -->
+                    <div class="glass-card p-3.5 rounded-xl space-y-2">
+                        <h4 class="font-bold text-slate-200 border-b border-slate-700/60 pb-1.5">시스템 커스텀 및 백업</h4>
+                        <button onclick="backupDataJSON()" class="w-full bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 py-2 rounded-lg font-medium text-xs"><i class="fa-solid fa-download mr-1"></i> JSON 백업 다운로드</button>
+                        <input id="bgUrlInput" type="text" placeholder="배경화면 이미지 URL" class="w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs">
+                        <button onclick="changeBg()" class="w-full bg-slate-700 py-2 rounded-lg text-white font-medium text-xs">배경화면 적용</button>
+                    </div>
+                </div>
+            `;
+
+            const lockListContainer = document.getElementById('appLockSettingList');
+            lockListContainer.innerHTML = APPS.filter(a => a.id !== 'settings').map(app => {
+                const config = appLockSettings[app.id] || { enabled: false, pin: '0000' };
+                return `
+                    <div class="flex items-center justify-between bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                        <span class="flex items-center gap-1.5 font-medium text-slate-300 text-[11px]">
+                            <i class="fa-solid ${app.icon} text-slate-400"></i> ${app.name}
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="pin-input-${app.id}" value="${config.pin}" placeholder="PIN" class="w-20 bg-slate-950 border border-slate-700 text-center text-xs py-1 rounded font-mono text-rose-300">
+                            <button onclick="toggleAppLock('${app.id}')" class="px-2.5 py-1 rounded text-[11px] font-semibold ${config.enabled ? 'bg-rose-600 text-white' : 'bg-slate-700 text-slate-400'}">
+                                ${config.enabled ? '잠김' : '해제'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            window.updatePhonePin = async () => {
+                const newPin = document.getElementById('masterPhonePin').value.trim();
+                if(newPin) {
+                    await saveData('phone_lock_pin', newPin);
+                    alert('전화기 잠금 PIN이 업데이트되었습니다.');
+                }
+            };
+
+            window.updateAdminPin = async () => {
+                const newPin = document.getElementById('masterAdminPin').value.trim();
+                if(newPin) {
+                    await saveData('admin_pin', newPin);
+                    alert('관리자 PIN이 업데이트되었습니다.');
+                }
+            };
+
+            window.toggleAppLock = async (appId) => {
+                const config = appLockSettings[appId] || { enabled: false, pin: '0000' };
+                const pinInput = document.getElementById(`pin-input-${appId}`);
+                const newPin = pinInput.value.trim() || '0000';
+
+                appLockSettings[appId] = {
+                    enabled: !config.enabled,
+                    pin: newPin
+                };
+
+                await saveData('app_lock_config', appLockSettings);
+                renderSettingsApp(container);
+                renderAppGrid();
+            };
+
+            window.changeBg = () => {
+                const url = document.getElementById('bgUrlInput').value.trim();
+                if(url) {
+                    document.getElementById('screenArea').style.backgroundImage = `url('${url}')`;
+                    localStorage.setItem('MINIPHON_BG', url);
+                    alert('배경화면이 적용되었습니다.');
+                }
+            };
+        }
+
+        async function backupDataJSON() {
+            const backup = {
+                notes: await loadData('notes', []),
+                links: await loadData('links', []),
+                calendar_events: await loadData('calendar_events', []),
+                secret_notes_data: await loadData('secret_notes_data', []),
+                gallery: await loadData('gallery', []),
+                app_lock_config: await loadData('app_lock_config', {})
+            };
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `MINIPHON_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        }
+    </script>
+</body>
+</html>
